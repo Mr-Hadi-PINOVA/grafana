@@ -58,7 +58,8 @@ ansible/
 
 ## Continuous integration
 
-Every push and pull request against `main` runs the **Ansible CI** workflow located at `.github/workflows/ci.yml`. The workflow:
+The **Ansible CI** workflow located at `.github/workflows/ci.yml` is designed for manual execution from the `main` branch via the
+GitHub Actions "Run workflow" button. When triggered, it:
 
 1. Checks out the code.
 2. Installs Python 3.11, Ansible, `ansible-lint`, and `yamllint`.

@@ -1,12 +1,16 @@
 name: Ansible CI
 
 on:
-  pull_request:
-  push:
-    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Describe why you are running the CI workflow"
+        required: false
+        default: "manual-check"
 
 jobs:
   lint:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
