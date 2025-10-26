@@ -1,0 +1,181 @@
+---
+- name: Ensure prerequisite packages are installed (RPM)
+  package:
+    name:
+      - yum-utils
+      - libcap
+    state: present
+  when: ansible_os_family == "RedHat"
+
+- name: Ensure prerequisite packages are installed (Debian)
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - gnupg
+      - libcap2-bin
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+
+- name: Add Grafana GPG key (RPM)
+  rpm_key:
+    state: present
+    key: "{{ grafana_repo_gpg_key }}"
+  when: ansible_os_family == "RedHat"
+
+- name: Configure Grafana yum repository
+  yum_repository:
+    name: grafana
+    description: Grafana OSS
+    baseurl: "{{ grafana_repo_url }}"
+    gpgcheck: true
+    gpgkey: "{{ grafana_repo_gpg_key }}"
+    repo_gpgcheck: true
+    enabled: true
+  when: ansible_os_family == "RedHat"
+
+- name: Configure Grafana apt repository
+  ansible.builtin.deb822_repository:
+    name: "{{ grafana_deb_repo_name }}"
+    types: ["deb"]
+    uris:
+      - "{{ grafana_deb_repo_uri }}"
+    suites:
+      - "{{ grafana_deb_repo_suite }}"
+    components:
+      - "{{ grafana_deb_repo_components }}"
+    architectures:
+      - "{{ grafana_architecture_map.get(ansible_architecture, ansible_architecture) }}"
+    signed_by: "{{ grafana_repo_gpg_key }}"
+    state: present
+  register: grafana_repo_config
+  when: ansible_os_family == "Debian"
+
+- name: Refresh apt cache after adding Grafana repository
+  ansible.builtin.apt:
+    update_cache: true
+  when: ansible_os_family == "Debian" and grafana_repo_config is defined and grafana_repo_config.changed
+
+- name: Install Grafana
+  package:
+    name: "grafana{{ '='+grafana_version if grafana_version != 'latest' else '' }}"
+    state: present
+
+- name: Deploy Grafana configuration
+  template:
+    src: grafana.ini.j2
+    dest: "{{ grafana_config_path }}"
+    owner: root
+    group: grafana
+    mode: "0640"
+  notify: Restart Grafana
+
+- name: Deploy Grafana environment overrides (RPM)
+  template:
+    src: grafana-server.env.j2
+    dest: /etc/sysconfig/grafana-server
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_os_family == "RedHat"
+  notify: Restart Grafana
+
+- name: Deploy Grafana environment overrides (Debian)
+  template:
+    src: grafana-server.env.j2
+    dest: /etc/default/grafana-server
+    owner: root
+    group: root
+    mode: "0644"
+  when: ansible_os_family == "Debian"
+  notify: Restart Grafana
+
+- name: Check Grafana binary capabilities
+  command: getcap /usr/sbin/grafana-server
+  register: grafana_capabilities
+  changed_when: false
+  failed_when: grafana_capabilities.rc not in [0, 1]
+  when: grafana_http_port | int < 1024
+
+- name: Allow Grafana to bind privileged ports
+  command: setcap 'cap_net_bind_service=+ep' /usr/sbin/grafana-server
+  when: grafana_http_port | int < 1024 and 'cap_net_bind_service=+ep' not in (grafana_capabilities.stdout | default(''))
+  notify: Restart Grafana
+
+- name: Ensure Grafana data directory exists
+  file:
+    path: /var/lib/grafana/dashboards
+    state: directory
+    owner: grafana
+    group: grafana
+    mode: "0750"
+
+- name: Ensure Grafana provisioning directories exist
+  file:
+    path: "/etc/grafana/provisioning/{{ item }}"
+    state: directory
+    owner: root
+    group: grafana
+    mode: "0750"
+  loop:
+    - datasources
+    - dashboards
+
+- name: Provision Grafana datasources
+  template:
+    src: datasources.yml.j2
+    dest: /etc/grafana/provisioning/datasources/managed.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  when: grafana_datasources | length > 0
+  notify: Restart Grafana
+
+- name: Deploy Grafana dashboards
+  copy:
+    src: "{{ item }}"
+    dest: "/var/lib/grafana/dashboards/{{ item | basename }}"
+    owner: grafana
+    group: grafana
+    mode: "0640"
+  loop: "{{ grafana_dashboards }}"
+  when: grafana_dashboards | length > 0
+
+- name: Create dashboard provisioning definition
+  template:
+    src: dashboards.yml.j2
+    dest: /etc/grafana/provisioning/dashboards/managed.yml
+    owner: root
+    group: grafana
+    mode: "0640"
+  when: grafana_dashboards | length > 0
+  notify: Restart Grafana
+
+- name: Ensure Grafana service is enabled and running
+  service:
+    name: "{{ grafana_service_name }}"
+    enabled: true
+    state: started
+
+- name: Ensure firewalld is installed (RPM)
+  package:
+    name: firewalld
+    state: present
+  when: configure_firewalld | bool and ansible_os_family == "RedHat"
+
+- name: Ensure firewalld service is running
+  service:
+    name: firewalld
+    enabled: true
+    state: started
+  when: configure_firewalld | bool and ansible_os_family == "RedHat"
+
+- name: Open HTTP service in firewalld
+  firewalld:
+    service: "{{ grafana_firewalld_service }}"
+    permanent: true
+    state: enabled
+    immediate: true
+  when: configure_firewalld | bool and ansible_os_family == "RedHat"
+

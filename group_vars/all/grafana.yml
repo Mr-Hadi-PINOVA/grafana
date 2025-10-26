@@ -1,0 +1,16 @@
+---
+# General Grafana settings
+grafana_version: latest
+grafana_http_port: 80
+grafana_domain: ""
+grafana_root_url: ""
+
+# Administrator credentials (consider overriding via Ansible Vault)
+grafana_admin_user: admin
+grafana_admin_password: "ChangeMe123!"
+
+# Whether to configure firewalld to allow HTTP traffic
+configure_firewalld: true
+
+# Additional environment variables for the Grafana service
+grafana_env: {}
