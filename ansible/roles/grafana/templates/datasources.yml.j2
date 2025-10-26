@@ -1,0 +1,6 @@
+# Managed by Ansible
+apiVersion: 1
+datasources:
+{% for datasource in grafana_datasources %}
+  - {{ datasource | to_nice_yaml(indent=4) | trim | indent(4) }}
+{% endfor %}

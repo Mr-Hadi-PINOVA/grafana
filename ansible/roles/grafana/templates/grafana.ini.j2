@@ -1,0 +1,25 @@
+# Managed by Ansible
+[paths]
+; data, logs, plugins, provisioning paths default
+
+[server]
+protocol = http
+http_port = {{ grafana_http_port }}
+{% if grafana_domain %}domain = {{ grafana_domain }}
+{% endif %}
+{% if grafana_root_url %}root_url = {{ grafana_root_url }}
+{% endif %}
+
+[security]
+admin_user = {{ grafana_admin_user }}
+admin_password = {{ grafana_admin_password }}
+allow_embedding = {{ grafana_allow_embedding | ternary('true', 'false') }}
+
+{% if grafana_enable_anonymous %}
+[auth.anonymous]
+enabled = true
+org_role = {{ grafana_anonymous_org_role }}
+{% endif %}
+
+[users]
+allow_sign_up = false

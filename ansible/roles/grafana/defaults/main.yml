@@ -1,0 +1,31 @@
+---
+# Grafana role defaults
+
+grafana_repo_url: "https://packages.grafana.com/oss/rpm"
+grafana_repo_gpg_key: "https://packages.grafana.com/gpg.key"
+grafana_architecture_map:
+  x86_64: amd64
+  amd64: amd64
+  aarch64: arm64
+  arm64: arm64
+grafana_deb_repo_name: grafana
+grafana_deb_repo_uri: https://packages.grafana.com/oss/deb
+grafana_deb_repo_suite: stable
+grafana_deb_repo_components: main
+grafana_config_path: /etc/grafana/grafana.ini
+grafana_service_name: grafana-server
+
+grafana_allow_embedding: false
+grafana_enable_anonymous: false
+grafana_anonymous_org_role: Viewer
+
+# Dashboard provisioning
+# Provide a list of JSON dashboards to deploy (path to local files)
+grafana_dashboards: []
+
+# Datasource provisioning
+# Each item should conform to Grafana datasource provisioning schema
+grafana_datasources: []
+
+# Firewalld service name to open when configure_firewalld is true
+grafana_firewalld_service: http
